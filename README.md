@@ -1,0 +1,89 @@
+<h1 align=center>
+    <p> Pi Weather Clock 🕐<p>
+</h1>
+
+<p align="center">
+A dual-timezone world clock with live weather, running on Raspberry Pi Zero 2W with a 3.5" LCD.
+</p>
+
+<p align="center">
+    <img src="https://img.shields.io/badge/platform-Raspberry%20Pi-red">
+     <img src="https://img.shields.io/badge/python-3.9+-blue">
+    <img src="https://img.shields.io/badge/license-MIT-green">
+</p>
+
+- Dual timezone display
+- Live weather — temperature, humidity, and weather icon
+- Weather updates via [Open-Meteo](https://open-meteo.com/) (no API key required)
+
+## Hardware
+
+| Component | Spec |
+|-----------|------|
+| SBC | Raspberry Pi Zero 2W |
+| Display | 3.5" ST7796S SPI LCD (320×480) |
+
+## Software Requirements
+
+### System packages
+
+```bash
+sudo apt update
+sudo apt install \
+  python3-pil \
+  python3-tz \
+  python3-requests \
+  python3-spidev \
+  python3-gpiozero \
+  python3-numpy \
+  fonts-noto-cjk \
+  fonts-symbola
+```
+
+### Fonts
+
+```bash
+sudo mkdir -p /usr/share/fonts/truetype/custom
+sudo wget -O /usr/share/fonts/truetype/custom/Orbitron-Bold.ttf "https://github.com/google/fonts/raw/main/ofl/orbitron/Orbitron%5Bwght%5D.ttf"
+sudo wget -O /usr/share/fonts/truetype/custom/Rajdhani-Medium.ttf "https://github.com/google/fonts/raw/main/ofl/rajdhani/Rajdhani-Medium.ttf"
+sudo fc-cache -f -v
+```
+
+## Configuration
+
+Edit `config.py` to change timezones, weather locations, or display settings:
+
+```python
+# Upper / lower zone config (label + timezone + weather coordinates)
+CLOCK_UPPER_ZONE = {
+    "label": "Seattle",
+    "tz": pytz.timezone("America/Los_Angeles"),
+    "lat": 47.6745,
+    "lon": -122.3184,
+}
+
+CLOCK_LOWER_ZONE = {
+    "label": "Taiwan",
+    "tz": pytz.timezone("Asia/Taipei"),
+    "lat": 23.3354,
+    "lon": 120.2439,
+}
+```
+
+## Run
+
+```bash
+python main.py
+```
+
+To run on boot, add to crontab:
+
+```bash
+crontab -e
+# add:
+@reboot sleep 10 && python /home/pi/pi-weather-clock/main.py
+```
+
+## Weather Data
+
+Powered by [Open-Meteo](https://open-meteo.com/) — free, no API key required.
