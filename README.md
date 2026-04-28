@@ -18,10 +18,20 @@ A dual-timezone world clock with live weather, running on Raspberry Pi Zero 2W w
 
 ## Hardware
 
-| Component | Spec |
-|-----------|------|
-| SBC | Raspberry Pi Zero 2W |
-| Display | 3.5" ST7796S SPI LCD (320×480) |
+### Wiring
+
+![Wiring diagram](docs/wiring.png)
+
+| Pi Zero 2W | 3.5" ST7796S LCD |
+|:----------:|:-----------:|
+| 5V (Pin 2) | VCC |
+| GND (Pin 6) | GND |
+| GPIO10 / MOSI | SDA |
+| GPIO11 / SCLK | SCL |
+| GPIO8 / CE0 | CS |
+| GPIO27 | RST |
+| GPIO25 | DC |
+| GPIO12 | BL |
 
 ## Software Requirements
 
