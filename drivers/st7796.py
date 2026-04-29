@@ -229,6 +229,38 @@ class ST7796:
         self.digital_write(self.gpio_dc_pin, True)
         self.spi.writebytes2(pix)
 
+    def show_image_partial(self, image: Image, prev_image: Image) -> None:
+        """Send only the changed bounding-box region to the display (portrait mode).
+        Falls back to a full refresh when no previous image is provided."""
+        img_new = self.np.asarray(image)
+        img_old = self.np.asarray(prev_image)
+
+        diff = self.np.any(img_new != img_old, axis=2)
+        rows = self.np.any(diff, axis=1)
+        cols = self.np.any(diff, axis=0)
+
+        if not rows.any():
+            return  # Nothing changed
+
+        y0 = int(self.np.where(rows)[0][0])
+        y1 = int(self.np.where(rows)[0][-1])
+        x0 = int(self.np.where(cols)[0][0])
+        x1 = int(self.np.where(cols)[0][-1])
+
+        region = img_new[y0 : y1 + 1, x0 : x1 + 1]
+
+        r = region[..., 0].astype(self.np.uint16)
+        g = region[..., 1].astype(self.np.uint16)
+        b = region[..., 2].astype(self.np.uint16)
+        rgb565 = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
+        pix = rgb565.astype(self.np.dtype(">u2")).tobytes()
+
+        self.command(0x36)
+        self.data(0x48)  # Portrait
+        self.set_windows(x0, y0, x1, y1, 0)  # x1, y1 are inclusive
+        self.digital_write(self.gpio_dc_pin, True)
+        self.spi.writebytes2(pix)
+
     def clear(self) -> None:
         """Clear contents of image buffer"""
         _buffer = [0xFF] * (self.width * self.height * 2)

@@ -2,15 +2,16 @@
 import pytz
 
 # ── Font Settings ────────────────────────────────────────────
-FONT_TIME = "/usr/share/fonts/truetype/custom/Rajdhani-Medium.ttf"
-FONT_DATE = "/usr/share/fonts/truetype/custom/Rajdhani-Medium.ttf"
+FONT_TIME = "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc"
+FONT_DATE = "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc"
 FONT_LABEL = "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc"
-FONT_WEATHER = "/usr/share/fonts/truetype/custom/Orbitron-Bold.ttf"
-FONT_ICON = "/usr/share/fonts/truetype/ancient-scripts/Symbola_hint.ttf"
+FONT_WEATHER = "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc"
+FONT_ICON = "/usr/share/fonts/truetype/noto/NotoSansSymbols2-Regular.ttf"
 
 # ── Display Settings ─────────────────────────────────────────
 DISPLAY_W = 320
 DISPLAY_H = 480
+HALF_H = DISPLAY_H // 2
 BG_FOLDER = "/home/pi/photos/"
 BG_SWITCH_SEC = 10
 WEATHER_SEC = 300

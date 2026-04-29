@@ -47,16 +47,7 @@ sudo apt install \
   python3-gpiozero \
   python3-numpy \
   fonts-noto-cjk \
-  fonts-symbola
-```
-
-### Fonts
-
-```bash
-sudo mkdir -p /usr/share/fonts/truetype/custom
-sudo wget -O /usr/share/fonts/truetype/custom/Orbitron-Bold.ttf "https://github.com/google/fonts/raw/main/ofl/orbitron/Orbitron%5Bwght%5D.ttf"
-sudo wget -O /usr/share/fonts/truetype/custom/Rajdhani-Medium.ttf "https://github.com/google/fonts/raw/main/ofl/rajdhani/Rajdhani-Medium.ttf"
-sudo fc-cache -f -v
+  fonts-noto-core
 ```
 
 ## Configuration
