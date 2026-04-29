@@ -86,12 +86,30 @@ CLOCK_LOWER_ZONE = {
 python main.py
 ```
 
-To run on boot, add to crontab:
+To run on boot (recommended), use `systemd`:
 
 ```bash
-crontab -e
-# add:
-@reboot sleep 10 && python /home/pi/pi-weather-clock/main.py
+sudo tee /etc/systemd/system/pi-weather-clock.service > /dev/null << 'EOF'
+[Unit]
+Description=Pi Weather Clock
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/pi-weather-clock
+ExecStart=/usr/bin/python3 /home/pi/pi-weather-clock/main.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now pi-weather-clock.service
+sudo systemctl status pi-weather-clock.service
 ```
 
 ## Weather Data
