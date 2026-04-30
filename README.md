@@ -1,3 +1,7 @@
+<p align=center>
+    <img src="docs/demo.gif" alt="clock demo">
+</p>
+
 <h1 align=center>
     <p> Pi Weather Clock 🕐<p>
 </h1>
