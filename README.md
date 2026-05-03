@@ -39,7 +39,29 @@ A dual-timezone world clock with live weather, running on Raspberry Pi Zero 2W w
 
 ## Software Requirements
 
-### System packages
+### 1. Enable SPI and hardware PWM
+
+Edit `/boot/firmware/config.txt` and add the following lines:
+
+```
+dtparam=spi=on
+dtoverlay=pwm,pin=12,func=4
+```
+
+Then reboot:
+
+```bash
+sudo reboot
+```
+
+Verify the PWM device appeared after reboot:
+
+```bash
+ls /sys/class/pwm/
+# expected output: pwmchip0
+```
+
+### 2. System packages
 
 ```bash
 sudo apt update
@@ -48,7 +70,7 @@ sudo apt install \
   python3-tz \
   python3-requests \
   python3-spidev \
-  python3-gpiozero \
+  python3-lgpio \
   python3-numpy \
   fonts-noto-cjk \
   fonts-noto-core

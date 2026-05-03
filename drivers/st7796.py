@@ -1,15 +1,20 @@
+import os
 import time
 import spidev
 import numpy as np
 from PIL.Image import Image
-from gpiozero import DigitalOutputDevice, PWMOutputDevice
+import lgpio
 
 SPI_FREQ = 40000000  # SPI clock frequency
 SPI_MODE = 0b00  # SPI mode (clock polarity and phase)
-BL_FREQ = 1000  # PWM frequency (backlight)
 RST_PIN = 27
 DC_PIN = 25
 BL_PIN = 12
+
+# Hardware PWM via kernel sysfs (requires dtoverlay=pwm,pin=12,func=4 in config.txt)
+_PWM_CHIP = 0
+_PWM_CHANNEL = 0
+_PWM_PERIOD_NS = 500_000  # 2 kHz
 
 
 class ST7796:
@@ -19,15 +24,11 @@ class ST7796:
         self.height = 480
         self.size = (self.width, self.height)
 
-        self.gpio_rst_pin = DigitalOutputDevice(
-            RST_PIN, active_high=True, initial_value=True
-        )  # RST as output: pin, active high, default high  # Using DigitalOutputDevice from GPIO Zero
-        self.gpio_dc_pin = DigitalOutputDevice(
-            DC_PIN, active_high=True, initial_value=True
-        )  # DC as output: pin, active high, default high   # Using DigitalOutputDevice from GPIO Zero
-        self.gpio_bl_pin = PWMOutputDevice(
-            BL_PIN, frequency=BL_FREQ
-        )  # BL as PWM: pin, PWM frequency                 # Using PWMOutputDevice from GPIO Zero
+        self._gpio = lgpio.gpiochip_open(0)
+        lgpio.gpio_claim_output(self._gpio, RST_PIN, 1)  # initial high
+        lgpio.gpio_claim_output(self._gpio, DC_PIN, 1)   # initial high
+        self._pwm_sysfs = f"/sys/class/pwm/pwmchip{_PWM_CHIP}/pwm{_PWM_CHANNEL}"
+        self._init_hw_pwm()
         self.bl_duty_cycle(100)
         # Initialize SPI
         self.spi = spidev.SpiDev(0, 0)
@@ -36,35 +37,49 @@ class ST7796:
 
         self.lcd_init()
 
+    def _init_hw_pwm(self) -> None:
+        export = f"/sys/class/pwm/pwmchip{_PWM_CHIP}/export"
+        if not os.path.exists(self._pwm_sysfs):
+            with open(export, "w") as f:
+                f.write(str(_PWM_CHANNEL))
+            time.sleep(0.05)
+        with open(f"{self._pwm_sysfs}/enable", "w") as f:
+            f.write("0")
+        with open(f"{self._pwm_sysfs}/period", "w") as f:
+            f.write(str(_PWM_PERIOD_NS))
+        with open(f"{self._pwm_sysfs}/duty_cycle", "w") as f:
+            f.write(str(_PWM_PERIOD_NS))  # 100% initially
+        with open(f"{self._pwm_sysfs}/enable", "w") as f:
+            f.write("1")
+
     def bl_duty_cycle(self, duty: int | float) -> None:
         """Set backlight brightness (0-100%)"""
-        self.gpio_bl_pin.value = duty / 100
+        duty_ns = int(_PWM_PERIOD_NS * max(0.0, min(100.0, float(duty))) / 100)
+        with open(f"{self._pwm_sysfs}/duty_cycle", "w") as f:
+            f.write(str(duty_ns))
 
-    def digital_write(self, pin: DigitalOutputDevice, value: bool) -> None:
-        if value:
-            pin.on()
-        else:
-            pin.off()
+    def digital_write(self, pin: int, value: bool) -> None:
+        lgpio.gpio_write(self._gpio, pin, 1 if value else 0)
 
     def spi_write_byte(self, data: list[int]) -> None:
         if self.spi is not None:
             self.spi.writebytes(data)
 
     def command(self, cmd: int) -> None:
-        self.digital_write(self.gpio_dc_pin, False)
+        self.digital_write(DC_PIN, False)
         self.spi_write_byte([cmd])
 
     def data(self, val: int) -> None:
-        self.digital_write(self.gpio_dc_pin, True)
+        self.digital_write(DC_PIN, True)
         self.spi_write_byte([val])
 
     def reset(self) -> None:
         """Reset the display"""
-        self.digital_write(self.gpio_rst_pin, True)
+        self.digital_write(RST_PIN, True)
         time.sleep(0.01)
-        self.digital_write(self.gpio_rst_pin, False)
+        self.digital_write(RST_PIN, False)
         time.sleep(0.01)
-        self.digital_write(self.gpio_rst_pin, True)
+        self.digital_write(RST_PIN, True)
         time.sleep(0.01)
 
     def lcd_init(self) -> None:
@@ -226,7 +241,7 @@ class ST7796:
             self.data(0x48)
             self.set_windows(0, 0, self.width, self.height, 0)
 
-        self.digital_write(self.gpio_dc_pin, True)
+        self.digital_write(DC_PIN, True)
         self.spi.writebytes2(pix)
 
     def show_image_partial(self, image: Image, prev_image: Image) -> None:
@@ -258,12 +273,12 @@ class ST7796:
         self.command(0x36)
         self.data(0x48)  # Portrait
         self.set_windows(x0, y0, x1, y1, 0)  # x1, y1 are inclusive
-        self.digital_write(self.gpio_dc_pin, True)
+        self.digital_write(DC_PIN, True)
         self.spi.writebytes2(pix)
 
     def clear(self) -> None:
         """Clear contents of image buffer"""
         _buffer = [0xFF] * (self.width * self.height * 2)
         self.set_windows(0, 0, self.width, self.height)
-        self.digital_write(self.gpio_dc_pin, True)
+        self.digital_write(DC_PIN, True)
         self.spi.writebytes2(_buffer)
