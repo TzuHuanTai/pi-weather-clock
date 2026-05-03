@@ -32,7 +32,8 @@ def get_bg_images(folder):
         + glob.glob(f"{folder}/*.jpeg")
     )
     if not paths:
-        raise FileNotFoundError(f"No images in {folder}")
+        print(f"No images in {folder}, using black background")
+        return [Image.new("RGB", (DISPLAY_W, DISPLAY_H), (0, 0, 0))]
 
     images = []
     for path in paths:
