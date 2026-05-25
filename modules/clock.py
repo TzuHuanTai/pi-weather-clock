@@ -17,8 +17,7 @@ from config import (
 
 # ── Layout constants ─────────────────────────────────────────
 PAD = 36  # horizontal padding for weather row
-LABEL_GAP = 4  # gap between city label and time
-GAP = 4  # gap between time/date and date/weather
+GAP = 4  # gap between elements
 SHADOW_PAD = 2  # extra pixels above/below text strip for shadow coverage
 
 
@@ -86,17 +85,17 @@ def _calc_layout(fonts, label, time_str, date_str, weather, y_offset):
         fonts["weather"].getbbox(humi_str)[3],
     )
 
-    total_h = label_h + LABEL_GAP + time_h + GAP + date_h + GAP + weather_h
+    total_h = label_h + GAP + time_h + GAP + date_h + GAP + weather_h
     top = y_offset + (HALF_H - total_h) // 2
 
     return {
         "top": top,
         "label_h": label_h,
-        "time_y": top + label_h + LABEL_GAP,
+        "time_y": top + label_h + GAP,
         "time_h": time_h,
-        "date_y": top + label_h + LABEL_GAP + time_h + GAP,
+        "date_y": top + label_h + GAP + time_h + GAP,
         "date_h": date_h,
-        "weather_y": top + label_h + LABEL_GAP + time_h + GAP + date_h + GAP,
+        "weather_y": top + label_h + GAP + time_h + GAP + date_h + GAP,
         "weather_h": weather_h,
     }
 
@@ -178,7 +177,7 @@ def render_clock_elements(
 
     def erase_strip(y, h):
         """Restore background pixels in this element's horizontal band."""
-        y0 = max(0, y - SHADOW_PAD)
+        y0 = y
         y1 = min(DISPLAY_H, y + h + SHADOW_PAD)
         image.paste(bg_image.crop((0, y0, W, y1)), (0, y0))
 
