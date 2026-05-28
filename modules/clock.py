@@ -13,12 +13,19 @@ from config import (
     DISPLAY_H,
     HALF_H,
     WMO_COLORS,
+    LABEL_COLOR,
+    TIME_COLOR,
+    DATE_COLOR,
+    TEMP_COLOR,
+    HUMI_COLOR,
+    ICON_COLOR,
 )
 
 # ── Layout constants ─────────────────────────────────────────
 PAD = 36  # horizontal padding for weather row
 GAP = 4  # gap between elements
-SHADOW_PAD = 2  # extra pixels above/below text strip for shadow coverage
+SHADOW_PAD = 1  # extra pixels above/below text strip for shadow coverage
+SHADOW_BLUR = 1  # number of shadow layers (more layers = smoother but slower)
 
 
 def load_fonts():
@@ -41,6 +48,12 @@ def text_h(text, font):
     return bbox[3] - bbox[1]
 
 
+def draw_at_vertical_center(draw, pos, row_h, elem_h, text, font, fill):
+    x, y = pos
+    y = y + (row_h - elem_h) // 2
+    draw_text_with_shadow(draw, (x, y), text, font, fill)
+
+
 def draw_text_with_shadow(
     draw,
     pos,
@@ -48,15 +61,13 @@ def draw_text_with_shadow(
     font,
     fill,
     shadow_color=(130, 130, 130),
-    shadow_offset=(0, 1),
-    shadow_blur=1,
 ):
     """Draw text with shadow"""
     x, y = pos
-    sx, sy = shadow_offset
+    sx, sy = (0, SHADOW_PAD)
 
     # Shadow (multi-layer offset to simulate blur)
-    for i in range(shadow_blur, 0, -1):
+    for i in range(SHADOW_BLUR, 0, -1):
         alpha = int(180 / i)  # Outer layers are more transparent
         blur_color = shadow_color + (alpha,)
         # Create temporary offset layers for shadow
@@ -70,19 +81,21 @@ def draw_text_with_shadow(
     draw.text((x, y), text, font=font, fill=fill)
 
 
-def _calc_layout(fonts, label, time_str, date_str, weather, y_offset):
+def _calc_layout(fonts, label, y_offset):
     """Calculate y-positions for all elements in one half."""
-    temp_str = f"{weather['temp']}\u00b0C"
-    humi_str = f"{weather['humidity']}%"
-    icon_str = weather["icon"]
 
-    label_h = fonts["label"].getbbox(label)[3]
-    time_h = fonts["time"].getbbox(time_str)[3]
-    date_h = fonts["date"].getbbox(date_str)[3]
+    def fixed_h(font, ref):
+        bbox = font.getbbox(ref)
+        return bbox[3]
+
+    label_h = fixed_h(fonts["label"], label)
+    time_h = fixed_h(fonts["time"], "0123456789:")
+    date_h = fixed_h(fonts["date"], "0123456789-FMSTWadehinoru")
+
     weather_h = max(
-        fonts["icon"].getbbox(icon_str)[3],
-        fonts["weather"].getbbox(temp_str)[3],
-        fonts["weather"].getbbox(humi_str)[3],
+        fixed_h(fonts["icon"], "WX"),  # 'WX' is a common prefix in the icon font
+        fixed_h(fonts["weather"], "0123456789°C"),
+        fixed_h(fonts["weather"], "0123456789%"),
     )
 
     total_h = label_h + GAP + time_h + GAP + date_h + GAP + weather_h
@@ -130,7 +143,6 @@ def render_clock(
         date_str=upper_date_str or now_top.strftime("%Y-%m-%d  %a"),
         weather=upper_weather,
         y_offset=0,
-        time_color=(255, 255, 255),
     )
 
     # ── Bottom half ──────────────────────────────────────────
@@ -142,7 +154,6 @@ def render_clock(
         date_str=lower_date_str or now_bottom.strftime("%Y-%m-%d  %a"),
         weather=lower_weather,
         y_offset=HALF_H,
-        time_color=(255, 255, 255),
     )
 
     return image
@@ -165,13 +176,9 @@ def render_clock_elements(
     For each element in parts: restores the background strip, then redraws only that element.
     Returns updated frame (unchanged pixels remain identical to prev_frame).
     """
-    W = DISPLAY_W
     label = zone_config["label"]
-    layout = _calc_layout(fonts, label, time_str, date_str, weather, y_offset)
 
-    temp_str = f"{weather['temp']}\u00b0C"
-    humi_str = f"{weather['humidity']}%"
-    icon_str = weather["icon"]
+    layout = _calc_layout(fonts, label, y_offset)
 
     image = prev_frame.copy()
 
@@ -179,7 +186,7 @@ def render_clock_elements(
         """Restore background pixels in this element's horizontal band."""
         y0 = y
         y1 = min(DISPLAY_H, y + h + SHADOW_PAD)
-        image.paste(bg_image.crop((0, y0, W, y1)), (0, y0))
+        image.paste(bg_image.crop((0, y0, DISPLAY_W, y1)), (0, y0))
 
     if "time" in parts:
         erase_strip(layout["time_y"], layout["time_h"])
@@ -187,11 +194,10 @@ def render_clock_elements(
         tw = text_w(time_str, fonts["time"])
         draw_text_with_shadow(
             draw,
-            ((W - tw) // 2, layout["time_y"]),
+            ((DISPLAY_W - tw) // 2, layout["time_y"]),
             time_str,
             fonts["time"],
             (255, 255, 255),
-            shadow_offset=(0, 1),
         )
 
     if "date" in parts:
@@ -200,102 +206,103 @@ def render_clock_elements(
         dw = text_w(date_str, fonts["date"])
         draw_text_with_shadow(
             draw,
-            ((W - dw) // 2, layout["date_y"]),
+            ((DISPLAY_W - dw) // 2, layout["date_y"]),
             date_str,
             fonts["date"],
             (255, 255, 255),
-            shadow_offset=(0, 1),
         )
 
     if "weather" in parts:
-        temp_h = fonts["weather"].getbbox(temp_str)[3]
-        humi_h = fonts["weather"].getbbox(humi_str)[3]
-        icon_h = fonts["icon"].getbbox(icon_str)[3]
-        row_h = max(temp_h, humi_h, icon_h)
-        wy = layout["weather_y"]
-
-        erase_strip(wy, row_h)
+        erase_strip(layout["weather_y"], layout["weather_h"])
         draw = ImageDraw.Draw(image)
 
-        def draw_at_vcenter(text, font, x, fill, elem_h):
-            y = wy + (row_h - elem_h) // 2
-            draw_text_with_shadow(draw, (x, y), text, font, fill)
-
-        draw_at_vcenter(temp_str, fonts["weather"], PAD, (255, 255, 255), temp_h)
-        hw = text_w(humi_str, fonts["weather"])
-        draw_at_vcenter(
-            humi_str, fonts["weather"], W - hw - PAD, (255, 255, 255), humi_h
-        )
-        iw = text_w(icon_str, fonts["icon"])
-        wmo_code = weather.get("code", 0)
-        icon_color = WMO_COLORS.get(wmo_code, (255, 255, 255))
-        draw_at_vcenter(icon_str, fonts["icon"], (W - iw) // 2, icon_color, icon_h)
+        _draw_weather_row(draw, fonts, weather, layout)
 
     return image
 
 
-def _draw_half(draw, fonts, label, time_str, date_str, weather, y_offset, time_color):
-    W = DISPLAY_W
+def _draw_half(draw, fonts, label, time_str, date_str, weather, y_offset):
 
-    temp_str = f"{weather['temp']}\u00b0C"
-    humi_str = f"{weather['humidity']}%"
-    icon_str = weather["icon"]
-
-    layout = _calc_layout(fonts, label, time_str, date_str, weather, y_offset)
+    layout = _calc_layout(fonts, label, y_offset)
 
     # City label (centered)
     lw = text_w(label, fonts["label"])
     draw_text_with_shadow(
         draw,
-        pos=((W - lw) // 2, layout["top"]),
+        pos=((DISPLAY_W - lw) // 2, layout["top"]),
         text=label,
         font=fonts["label"],
-        fill=(255, 255, 255),
-        shadow_offset=(0, 1),
+        fill=LABEL_COLOR,
     )
 
     # Large time display (centered, Rajdhani)
     tw = text_w(time_str, fonts["time"])
     draw_text_with_shadow(
         draw,
-        pos=((W - tw) // 2, layout["time_y"]),
+        pos=((DISPLAY_W - tw) // 2, layout["time_y"]),
         text=time_str,
         font=fonts["time"],
-        fill=time_color,
-        shadow_offset=(0, 1),
+        fill=TIME_COLOR,
     )
 
     # Date (centered)
     dw = text_w(date_str, fonts["date"])
     draw_text_with_shadow(
         draw,
-        pos=((W - dw) // 2, layout["date_y"]),
+        pos=((DISPLAY_W - dw) // 2, layout["date_y"]),
         text=date_str,
         font=fonts["date"],
-        fill=(255, 255, 255),
-        shadow_offset=(0, 1),
+        fill=DATE_COLOR,
     )
 
-    # ── Weather row (left: temp  center: icon  right: humidity) ──
-    wy = layout["weather_y"]
+    # Weather row
+    _draw_weather_row(draw, fonts, weather, layout)
+
+
+def _draw_weather_row(draw, fonts, weather, layout):
+    # Weather row (left: temp  center: icon  right: humidity)
+    temp_str = f"{weather['temp']}\u00b0C"
+    humi_str = f"{weather['humidity']}%"
+    icon_str = weather["icon"]
     temp_h = fonts["weather"].getbbox(temp_str)[3]
     humi_h = fonts["weather"].getbbox(humi_str)[3]
     icon_h = fonts["icon"].getbbox(icon_str)[3]
-    row_h = max(temp_h, humi_h, icon_h)
-
-    def draw_at_vcenter(text, font, x, fill, elem_h):
-        y = wy + (row_h - elem_h) // 2
-        draw_text_with_shadow(draw, (x, y), text, font, fill)
+    wy = layout["weather_y"]
+    row_h = layout["weather_h"]
 
     # Left: temperature
-    draw_at_vcenter(temp_str, fonts["weather"], PAD, (255, 255, 255), temp_h)
+    draw_at_vertical_center(
+        draw,
+        pos=(PAD, wy),
+        row_h=row_h,
+        elem_h=temp_h,
+        text=temp_str,
+        font=fonts["weather"],
+        fill=TEMP_COLOR,
+    )
 
     # Right: humidity
     hw = text_w(humi_str, fonts["weather"])
-    draw_at_vcenter(humi_str, fonts["weather"], W - hw - PAD, (255, 255, 255), humi_h)
+    draw_at_vertical_center(
+        draw,
+        pos=(DISPLAY_W - hw - PAD, wy),
+        row_h=row_h,
+        elem_h=humi_h,
+        text=humi_str,
+        font=fonts["weather"],
+        fill=HUMI_COLOR,
+    )
 
     # Center: icon
     iw = text_w(icon_str, fonts["icon"])
     wmo_code = weather.get("code", 0)
-    icon_color = WMO_COLORS.get(wmo_code, (255, 255, 255))
-    draw_at_vcenter(icon_str, fonts["icon"], (W - iw) // 2, icon_color, icon_h)
+    icon_color = WMO_COLORS.get(wmo_code, ICON_COLOR)
+    draw_at_vertical_center(
+        draw,
+        pos=((DISPLAY_W - iw) // 2, wy),
+        row_h=row_h,
+        elem_h=icon_h,
+        text=icon_str,
+        font=fonts["icon"],
+        fill=icon_color,
+    )

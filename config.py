@@ -56,6 +56,12 @@ WMO_ICONS = {
     99: "⛈",
 }
 
+LABEL_COLOR = (255, 255, 255)
+TIME_COLOR = (255, 255, 255)
+DATE_COLOR = (255, 255, 255)
+TEMP_COLOR = (255, 255, 255)
+HUMI_COLOR = (255, 255, 255)
+ICON_COLOR = (255, 255, 255)
 WMO_COLORS = {
     0: (255, 220, 80),  # Clear → yellow
     1: (255, 220, 80),
